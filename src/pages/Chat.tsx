@@ -7,7 +7,7 @@ const CHAT_URL = "https://functions.poehali.dev/be667513-6940-4936-b35a-e448a3aa
 interface Message {
   id: string;
   role: "user" | "assistant";
-  type: "text" | "image";
+  type: "text" | "image" | "error";
   text: string;
   image_url?: string;
   loading?: boolean;
@@ -91,7 +91,7 @@ export default function Chat() {
       const assistantMsg: Message = {
         id: Date.now().toString() + "_ai",
         role: "assistant",
-        type: data.type || "text",
+        type: data.type === "image" ? "image" : data.type === "error" ? "error" : "text",
         text: data.text || "Произошла ошибка, попробуй ещё раз.",
         image_url: data.image_url,
       };
@@ -103,8 +103,8 @@ export default function Chat() {
         {
           id: Date.now().toString() + "_err",
           role: "assistant",
-          type: "text",
-          text: "Не удалось получить ответ. Проверь подключение к интернету.",
+          type: "error",
+          text: "Не удалось связаться с сервером. Проверь подключение к интернету.",
         },
       ]);
     } finally {
@@ -208,6 +208,11 @@ export default function Chat() {
                         {msg.text}
                       </div>
                     )}
+                  </div>
+                ) : msg.type === "error" ? (
+                  <div className="rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed bg-red-500/10 border border-red-500/20 text-red-300 flex items-start gap-2">
+                    <Icon name="AlertCircle" size={15} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <span>{msg.text}</span>
                   </div>
                 ) : (
                   <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${

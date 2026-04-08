@@ -1,27 +1,30 @@
 """
-Мозг Guest AI — обрабатывает сообщения чата и генерирует изображения через OpenRouter.
-Поддерживает: обычный чат (GPT-4o) и рисование картинок (DALL-E 3 via OpenRouter).
+Мозг Guest AI — обрабатывает сообщения чата и генерирует изображения.
+Чат: OpenRouter (GPT-4o). Картинки: Pollinations.ai (бесплатно, без ключа).
 """
 import json
 import os
 import urllib.request
 import urllib.error
+import urllib.parse
 
 
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 CHAT_MODEL = "openai/gpt-4o"
-IMAGE_MODEL = "openai/dall-e-3"
 
-SYSTEM_PROMPT = """Ты — Guest, умный и дружелюбный AI-ассистент. Ты помогаешь пользователям создавать тексты, идеи, контент для бизнеса и отвечаешь на любые вопросы.
+SYSTEM_PROMPT = """Ты — Guest, умный и дружелюбный AI-ассистент на русском языке. Ты помогаешь пользователям создавать тексты, идеи, контент для бизнеса и отвечаешь на любые вопросы.
 
 Твои возможности:
 - Генерация и редактирование текстов любого формата
 - Помощь с маркетингом, SMM, SEO
 - Ответы на вопросы по бизнесу
 - Написание кода, скриптов, инструкций
-- Рисование картинок — когда пользователь просит нарисовать или создать изображение, ответь ТОЛЬКО JSON: {"action":"draw","prompt":"детальное описание на английском"}
+- Рисование картинок
 
-Отвечай на русском языке. Будь полезным, конкретным и дружелюбным. Не добавляй лишних предисловий."""
+ВАЖНО: Когда пользователь просит нарисовать, создать изображение/картинку/арт/логотип/иллюстрацию — ответь СТРОГО в этом формате без лишнего текста:
+{"action":"draw","prompt":"detailed English description of the image","prompt_ru":"описание на русском"}
+
+Отвечай на русском языке. Будь конкретным и дружелюбным."""
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -36,7 +39,7 @@ def call_openrouter(payload: dict) -> dict:
         "https://openrouter.ai/api/v1/chat/completions",
         data=data,
         headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Authorization": f"Bearer {OPENROUTER_API_KEY.strip()}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://poehali.dev",
             "X-Title": "Guest AI",
@@ -47,29 +50,10 @@ def call_openrouter(payload: dict) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def generate_image(prompt: str) -> str:
-    """Генерирует изображение через OpenRouter DALL-E 3, возвращает URL."""
-    data = json.dumps({
-        "model": IMAGE_MODEL,
-        "prompt": prompt,
-        "n": 1,
-        "size": "1024x1024",
-        "quality": "hd",
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/images/generations",
-        data=data,
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://poehali.dev",
-            "X-Title": "Guest AI",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        result = json.loads(resp.read().decode("utf-8"))
-    return result["data"][0]["url"]
+def generate_image_url(prompt: str) -> str:
+    """Генерирует URL картинки через Pollinations.ai (бесплатно, без ключа)."""
+    encoded = urllib.parse.quote(prompt)
+    return f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&enhance=true&nologo=true&model=flux"
 
 
 def handler(event: dict, context) -> dict:
@@ -85,13 +69,20 @@ def handler(event: dict, context) -> dict:
         if not user_message:
             return {
                 "statusCode": 400,
-                "headers": CORS_HEADERS,
+                "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
                 "body": json.dumps({"error": "Сообщение не может быть пустым"}),
+            }
+
+        if not OPENROUTER_API_KEY:
+            return {
+                "statusCode": 200,
+                "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"type": "error", "text": "API ключ не настроен. Добавьте OPENROUTER_API_KEY в секреты проекта."}),
             }
 
         # Формируем историю сообщений
         history = [{"role": "system", "content": SYSTEM_PROMPT}]
-        for msg in messages[-10:]:  # последние 10 сообщений для контекста
+        for msg in messages[-10:]:
             if msg.get("role") in ("user", "assistant") and msg.get("content"):
                 history.append({"role": msg["role"], "content": msg["content"]})
         history.append({"role": "user", "content": user_message})
@@ -107,23 +98,34 @@ def handler(event: dict, context) -> dict:
         ai_text = chat_result["choices"][0]["message"]["content"].strip()
 
         # Проверяем, хочет ли AI нарисовать картинку
+        # Ищем JSON в тексте (модель иногда добавляет текст вокруг)
+        action_data = None
         try:
             action_data = json.loads(ai_text)
-            if isinstance(action_data, dict) and action_data.get("action") == "draw":
-                image_prompt = action_data.get("prompt", user_message)
-                image_url = generate_image(image_prompt)
-                return {
-                    "statusCode": 200,
-                    "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
-                    "body": json.dumps({
-                        "type": "image",
-                        "image_url": image_url,
-                        "prompt": image_prompt,
-                        "text": f"Готово! Вот твоя картинка по запросу: «{image_prompt}»",
-                    }),
-                }
         except (json.JSONDecodeError, TypeError):
-            pass
+            # Пробуем найти JSON внутри текста
+            import re
+            match = re.search(r'\{.*?"action"\s*:\s*"draw".*?\}', ai_text, re.DOTALL)
+            if match:
+                try:
+                    action_data = json.loads(match.group())
+                except Exception:
+                    pass
+
+        if isinstance(action_data, dict) and action_data.get("action") == "draw":
+            image_prompt = action_data.get("prompt", user_message)
+            prompt_ru = action_data.get("prompt_ru", user_message)
+            image_url = generate_image_url(image_prompt)
+            return {
+                "statusCode": 200,
+                "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({
+                    "type": "image",
+                    "image_url": image_url,
+                    "prompt": prompt_ru,
+                    "text": f"Рисую по запросу: «{prompt_ru}»",
+                }),
+            }
 
         return {
             "statusCode": 200,
@@ -135,15 +137,31 @@ def handler(event: dict, context) -> dict:
         }
 
     except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
+        error_body = ""
+        try:
+            error_body = e.read().decode("utf-8")
+            error_json = json.loads(error_body)
+            error_msg = error_json.get("error", {}).get("message", error_body)
+        except Exception:
+            error_msg = error_body or str(e)
+
+        user_msg = "Ошибка соединения с AI"
+        if e.code == 401:
+            user_msg = "Неверный API ключ OpenRouter. Проверьте секрет OPENROUTER_API_KEY."
+        elif e.code == 402:
+            user_msg = "Недостаточно средств на балансе OpenRouter. Пополните баланс на openrouter.ai."
+        elif e.code == 429:
+            user_msg = "Слишком много запросов. Попробуйте через несколько секунд."
+
         return {
-            "statusCode": 502,
-            "headers": CORS_HEADERS,
-            "body": json.dumps({"error": f"Ошибка AI: {e.code}", "detail": error_body}),
+            "statusCode": 200,
+            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+            "body": json.dumps({"type": "error", "text": user_msg, "detail": error_msg}),
         }
+
     except Exception as e:
         return {
-            "statusCode": 500,
-            "headers": CORS_HEADERS,
-            "body": json.dumps({"error": str(e)}),
+            "statusCode": 200,
+            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+            "body": json.dumps({"type": "error", "text": f"Что-то пошло не так: {str(e)}"}),
         }
