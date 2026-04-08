@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Chat message",
+      "method": "POST",
+      "path": "/",
+      "body": {"message": "Привет! Кто ты?", "messages": []},
+      "expectedStatus": 200,
+      "expectedBody": {"type": "text"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

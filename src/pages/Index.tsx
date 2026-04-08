@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 
 const NAV_LINKS = [
@@ -128,6 +129,7 @@ const MARQUEE_ITEMS = [
 ];
 
 function Navbar() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
@@ -143,8 +145,16 @@ function Navbar() {
           ))}
         </div>
         <div className="hidden md:flex items-center gap-3">
-          <button className="text-sm text-white/70 hover:text-white px-4 py-2 transition-colors font-golos">Войти</button>
-          <button className="text-sm font-semibold px-5 py-2 rounded-full bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:scale-105 transition-transform duration-200 shadow-lg font-montserrat">
+          <button
+            onClick={() => navigate("/chat")}
+            className="flex items-center gap-2 text-sm text-white/70 hover:text-white px-4 py-2 transition-colors font-golos"
+          >
+            <Icon name="MessageCircle" size={15} /> Чат
+          </button>
+          <button
+            onClick={() => navigate("/chat")}
+            className="text-sm font-semibold px-5 py-2 rounded-full bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:scale-105 transition-transform duration-200 shadow-lg font-montserrat"
+          >
             Попробовать
           </button>
         </div>
@@ -157,7 +167,10 @@ function Navbar() {
           {NAV_LINKS.map((l) => (
             <a key={l.href} href={l.href} className="text-sm text-white/70 hover:text-white py-1 font-golos" onClick={() => setOpen(false)}>{l.label}</a>
           ))}
-          <button className="mt-2 text-sm font-semibold px-5 py-2.5 rounded-full bg-gradient-to-r from-violet-600 to-pink-600 text-white font-montserrat">
+          <button
+            onClick={() => navigate("/chat")}
+            className="mt-2 text-sm font-semibold px-5 py-2.5 rounded-full bg-gradient-to-r from-violet-600 to-pink-600 text-white font-montserrat"
+          >
             Попробовать бесплатно
           </button>
         </div>
@@ -167,6 +180,7 @@ function Navbar() {
 }
 
 function HeroSection() {
+  const navigate = useNavigate();
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       <div className="absolute inset-0 pointer-events-none">
@@ -198,13 +212,19 @@ function HeroSection() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '0.3s', opacity: 0 }}>
-          <button className="group w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white font-montserrat font-bold text-base hover:scale-105 transition-all duration-300 shadow-2xl flex items-center justify-center gap-2">
+          <button
+            onClick={() => navigate("/chat")}
+            className="group w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-white font-montserrat font-bold text-base hover:scale-105 transition-all duration-300 shadow-2xl flex items-center justify-center gap-2"
+          >
             Попробовать бесплатно
             <Icon name="ArrowRight" size={18} />
           </button>
-          <button className="w-full sm:w-auto px-8 py-4 rounded-2xl glass border border-white/10 text-white font-golos font-medium text-base hover:border-white/30 transition-all duration-300 flex items-center justify-center gap-2">
-            <Icon name="Play" size={16} />
-            Смотреть демо
+          <button
+            onClick={() => navigate("/chat")}
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl glass border border-white/10 text-white font-golos font-medium text-base hover:border-white/30 transition-all duration-300 flex items-center justify-center gap-2"
+          >
+            <Icon name="MessageCircle" size={16} />
+            Открыть чат
           </button>
         </div>
 
@@ -295,6 +315,7 @@ function FeaturesSection() {
 }
 
 function PricingSection() {
+  const navigate = useNavigate();
   return (
     <section id="pricing" className="section-pad relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
@@ -337,11 +358,14 @@ function PricingSection() {
                   </li>
                 ))}
               </ul>
-              <button className={`w-full py-3.5 rounded-2xl font-montserrat font-bold text-sm transition-all duration-200 hover:scale-105 ${
-                plan.highlight
-                  ? 'bg-gradient-to-r from-violet-600 to-pink-600 text-white shadow-lg'
-                  : 'glass border border-white/15 text-white hover:border-white/30'
-              }`}>
+              <button
+                onClick={() => navigate(plan.name === "Бизнес" ? "#contacts" : "/chat")}
+                className={`w-full py-3.5 rounded-2xl font-montserrat font-bold text-sm transition-all duration-200 hover:scale-105 ${
+                  plan.highlight
+                    ? 'bg-gradient-to-r from-violet-600 to-pink-600 text-white shadow-lg'
+                    : 'glass border border-white/15 text-white hover:border-white/30'
+                }`}
+              >
                 {plan.cta}
               </button>
             </div>
@@ -518,6 +542,20 @@ function Footer() {
   );
 }
 
+function FloatingChatButton() {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate("/chat")}
+      className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-montserrat font-bold text-sm shadow-2xl glow-violet hover:scale-105 transition-transform duration-200 group"
+    >
+      <Icon name="MessageCircle" size={18} className="text-white" />
+      <span>Открыть чат</span>
+      <span className="w-2 h-2 rounded-full bg-lime-400 animate-pulse" />
+    </button>
+  );
+}
+
 const Index = () => {
   return (
     <div className="bg-[#09090F] min-h-screen font-golos">
@@ -531,6 +569,7 @@ const Index = () => {
       <FaqSection />
       <ContactsSection />
       <Footer />
+      <FloatingChatButton />
     </div>
   );
 };
